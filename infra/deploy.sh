@@ -19,3 +19,9 @@ docker compose ps
 SITE=$(grep ^SITE_ADDRESS= .env | cut -d= -f2)
 curl -fsS -o /dev/null -w "health: %{http_code}\n" --resolve "$SITE:443:127.0.0.1" "https://$SITE/api/health" || echo "health check failed: docker compose logs api"
 REMOTE
+
+# Optional: load the fee book after deploying, e.g.  FEEBOOK=~/Downloads/FEE_BOOK.xlsx ./infra/deploy...sh <fqdn>
+if [ -n "${FEEBOOK:-}" ]; then
+  echo "==> Loading fee book $FEEBOOK"
+  "$(dirname "$0")/ingest-feebook.sh" "$HOST" "$FEEBOOK"
+fi

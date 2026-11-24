@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # First month the app tracks dues for. Students who joined earlier get dues from this month
     # onward (older history stays in the register book / Excel).
-    tracking_start: date = date(2026, 6, 1)
+    tracking_start: date = date(2026, 11, 1)
 
     # Only needed in local dev when the Vite dev server runs on another port.
     cors_origins: list[str] = []

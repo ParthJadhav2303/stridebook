@@ -238,3 +238,8 @@ __marimo__/
 
 # Our source folders that the template patterns above would hide
 !frontend/src/lib/
+
+# Local data files (fee books etc.): never commit children's records
+data/
+*.xlsx
+!backend/tests/**/*.xlsx
