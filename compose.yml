@@ -1,0 +1,82 @@
+# StrideBook — everything runs on one VM.
+# Production: images are pulled from GHCR (see docs/runbook.md).
+# Local:      SITE_ADDRESS=:80 docker compose up --build   → http://localhost
+name: stridebook
+
+x-restart: &restart
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+  db:
+    <<: *restart
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stridebook}
+      POSTGRES_USER: ${POSTGRES_USER:-stridebook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    # Tuned for a 1 GiB VM and a tiny dataset.
+    command: >
+      postgres -c shared_buffers=64MB -c effective_cache_size=256MB
+      -c work_mem=4MB -c maintenance_work_mem=32MB -c max_connections=20
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    <<: *restart
+    image: ${IMAGE_PREFIX:-stridebook}/stridebook-api:${TAG:-latest}
+    build:
+      context: ./backend
+      args: { APP_VERSION: "${TAG:-local}" }
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-stridebook}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-stridebook}
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      CLUB_NAME: ${CLUB_NAME:-Endurance Athletics Club}
+      CLUB_SHORT: ${CLUB_SHORT:-EAC}
+    depends_on:
+      db: { condition: service_healthy }
+
+  web:
+    <<: *restart
+    image: ${IMAGE_PREFIX:-stridebook}/stridebook-web:${TAG:-latest}
+    build:
+      context: .
+      dockerfile: deploy/caddy/Dockerfile
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+
+  backup:
+    <<: *restart
+    image: ${IMAGE_PREFIX:-stridebook}/stridebook-backup:${TAG:-latest}
+    build: ./deploy/backup
+    environment:
+      PGHOST: db
+      PGDATABASE: ${POSTGRES_DB:-stridebook}
+      PGUSER: ${POSTGRES_USER:-stridebook}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_CONTAINER_URL: ${BACKUP_CONTAINER_URL:-}
+      BACKUP_SAS: ${BACKUP_SAS:-}
+      BACKUP_CRON: ${BACKUP_CRON:-30 20 * * *}
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

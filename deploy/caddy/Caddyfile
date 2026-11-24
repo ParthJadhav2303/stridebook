@@ -1,0 +1,32 @@
+# SITE_ADDRESS examples:
+#   stridebook-xyz.centralindia.cloudapp.azure.com   → automatic HTTPS (Let's Encrypt)
+#   :80                                               → plain HTTP for local testing
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# App shell and service worker must always be revalidated so updates reach phones.
+	@shell path / /index.html /sw.js /manifest.webmanifest
+	header @shell Cache-Control "no-cache"
+
+	# Hashed build assets never change.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+}

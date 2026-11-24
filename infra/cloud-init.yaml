@@ -1,0 +1,35 @@
+#cloud-config
+# First-boot setup for the StrideBook VM (Ubuntu 24.04).
+timezone: Asia/Kolkata
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - fail2ban
+  - unattended-upgrades
+
+write_files:
+  - path: /etc/docker/daemon.json
+    content: |
+      { "log-driver": "json-file", "log-opts": { "max-size": "10m", "max-file": "3" } }
+  # Security updates install nightly; reboot at 03:30 IST only when required.
+  - path: /etc/apt/apt.conf.d/52stridebook-reboot
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "03:30";
+  - path: /etc/ssh/sshd_config.d/90-stridebook.conf
+    content: |
+      PasswordAuthentication no
+      PermitRootLogin no
+      KbdInteractiveAuthentication no
+
+runcmd:
+  # 2 GB swap: headroom for the 1 GiB VM.
+  - fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  - echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  - sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' > /etc/sysctl.d/99-swappiness.conf
+  - systemctl enable --now docker fail2ban
+  - usermod -aG docker stride
+  - mkdir -p /opt/stridebook && chown stride:stride /opt/stridebook
+  - systemctl restart ssh
