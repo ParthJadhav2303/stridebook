@@ -4,6 +4,7 @@
 #   ./scripts/demo-local.sh data/FEE_BOOK.xlsx          # set up (first time ~2 min) and open the app
 #   ./scripts/demo-local.sh data/FEE_BOOK.xlsx --fresh  # wipe the demo database and start again
 #   ./scripts/demo-local.sh                             # just start it again (keeps the data)
+#   add --background to keep it running after you close Terminal; stop it with --stop
 #
 # Needs: Postgres running locally (Postgres.app or Homebrew), Python 3.11+, Node 20+.
 # Settings (optional env vars): PGUSER (default: your Mac username), PGPASSWORD, PGHOST, PGPORT, DB_NAME.
@@ -13,9 +14,26 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FEEBOOK=""
 FRESH=0
+BACKGROUND=0
+RUN_DIR="$ROOT/.demo"
 for arg in "$@"; do
   case "$arg" in
     --fresh) FRESH=1 ;;
+    --background) BACKGROUND=1 ;;
+    --stop)
+      if [ -f "$RUN_DIR/pids" ]; then
+        # shellcheck disable=SC2046
+        kill $(cat "$RUN_DIR/pids") 2>/dev/null || true
+        rm -f "$RUN_DIR/pids"
+        # Also stop anything still listening on the demo ports (child processes).
+        for port in 8000 5173; do
+          lsof -ti "tcp:$port" -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true
+        done
+        echo "StrideBook demo stopped."
+      else
+        echo "No background demo is running."
+      fi
+      exit 0 ;;
     *) FEEBOOK="$(cd "$(dirname "$arg")" && pwd)/$(basename "$arg")" ;;
   esac
 done
@@ -100,15 +118,27 @@ if [ ! -d node_modules ] || [ package-lock.json -nt node_modules ]; then
 fi
 
 # --- run -------------------------------------------------------------------
-cleanup() { kill "$API_PID" "$WEB_PID" 2>/dev/null || true; }
-trap cleanup EXIT INT TERM
-
-say "Starting the server and the app"
-(cd "$ROOT/backend" && exec .venv/bin/uvicorn app.main:app --port 8000 --log-level warning) &
-API_PID=$!
-for _ in $(seq 1 40); do curl -fs http://localhost:8000/api/health >/dev/null 2>&1 && break; sleep 0.5; done
-(cd "$ROOT/frontend" && exec npx vite --port 5173 --strictPort --logLevel warn) &
-WEB_PID=$!
+mkdir -p "$RUN_DIR"
+if [ "$BACKGROUND" = 1 ]; then
+  # Keeps running after Terminal closes; logs in .demo/. Stop with: ./scripts/demo-local.sh --stop
+  say "Starting in the background (logs in .demo/)"
+  (cd "$ROOT/backend" && nohup .venv/bin/uvicorn app.main:app --port 8000 --log-level warning >"$RUN_DIR/api.log" 2>&1 &
+   echo $! >"$RUN_DIR/api.pid")
+  for _ in $(seq 1 40); do curl -fs http://localhost:8000/api/health >/dev/null 2>&1 && break; sleep 0.5; done
+  (cd "$ROOT/frontend" && nohup ./node_modules/.bin/vite --port 5173 --strictPort --logLevel warn >"$RUN_DIR/web.log" 2>&1 &
+   echo $! >"$RUN_DIR/web.pid")
+  cat "$RUN_DIR/api.pid" "$RUN_DIR/web.pid" >"$RUN_DIR/pids"
+  rm -f "$RUN_DIR/api.pid" "$RUN_DIR/web.pid"
+else
+  cleanup() { kill "$API_PID" "$WEB_PID" 2>/dev/null || true; }
+  trap cleanup EXIT INT TERM
+  say "Starting the server and the app"
+  (cd "$ROOT/backend" && exec .venv/bin/uvicorn app.main:app --port 8000 --log-level warning) &
+  API_PID=$!
+  for _ in $(seq 1 40); do curl -fs http://localhost:8000/api/health >/dev/null 2>&1 && break; sleep 0.5; done
+  (cd "$ROOT/frontend" && exec ./node_modules/.bin/vite --port 5173 --strictPort --logLevel warn) &
+  WEB_PID=$!
+fi
 
 for _ in $(seq 1 60); do  # wait for the server, then the app
   curl -fs http://localhost:8000/api/health >/dev/null 2>&1 && curl -fs http://localhost:5173/ >/dev/null 2>&1 && break
@@ -122,8 +152,11 @@ cat <<EOF
   Sign in as  mom / $DEMO_PASSWORD   (admin)
            or coach / $DEMO_PASSWORD (coach)
   Tip: in Chrome, open DevTools (Cmd+Opt+I) and toggle the phone view (Cmd+Shift+M).
-
-  Press Ctrl+C here to stop.
 EOF
-command -v open >/dev/null && open "http://localhost:5173"
-wait
+if command -v open >/dev/null; then open "http://localhost:5173" || true; fi
+if [ "$BACKGROUND" = 1 ]; then
+  echo "  It keeps running in the background. Stop it with:  ./scripts/demo-local.sh --stop"
+else
+  echo "  Press Ctrl+C here to stop."
+  wait
+fi

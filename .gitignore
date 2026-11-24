@@ -243,3 +243,4 @@ __marimo__/
 data/
 *.xlsx
 !backend/tests/**/*.xlsx
+.demo/
