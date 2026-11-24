@@ -235,3 +235,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Our source folders that the template patterns above would hide
+!frontend/src/lib/
