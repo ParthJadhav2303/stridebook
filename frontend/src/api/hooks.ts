@@ -58,8 +58,14 @@ export const useStudents = (f: StudentFilters) =>
     placeholderData: (prev) => prev,
   });
 
-export const useStudent = (id: number) =>
-  useQuery({ queryKey: ["student", id], queryFn: () => get<Student>(`/students/${id}`), enabled: id > 0 });
+/** `fresh`: always refetch when the component mounts (used where numbers are pre-filled). */
+export const useStudent = (id: number, opts: { fresh?: boolean } = {}) =>
+  useQuery({
+    queryKey: ["student", id],
+    queryFn: () => get<Student>(`/students/${id}`),
+    enabled: id > 0,
+    ...(opts.fresh ? { refetchOnMount: "always" as const } : {}),
+  });
 
 export const useLedger = (id: number, year: number) =>
   useQuery({

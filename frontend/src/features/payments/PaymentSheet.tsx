@@ -87,7 +87,7 @@ function PaymentForm({
   onSaved: (p: Payment, phone: string | null) => void;
   onChangeStudent?: () => void;
 }) {
-  const { data: student, isFetchedAfterMount } = useStudent(studentId);
+  const { data: student, isFetchedAfterMount } = useStudent(studentId, { fresh: true });
   // Wait for fresh numbers: the amount is pre-filled from what the student owes right now.
   if (!student || !isFetchedAfterMount) return <Loading />;
   return <PaymentFormLoaded student={student} onSaved={onSaved} onChangeStudent={onChangeStudent} />;
