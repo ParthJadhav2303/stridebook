@@ -64,6 +64,15 @@ From your laptop, after CI is green on `main`:
 Open `https://<fqdn>` on a phone. You should see **System check** with Server, Database and
 Version all green. Use the browser menu → *Add to Home screen*.
 
+### Create the logins (once)
+```bash
+ssh stride@<fqdn>
+cd /opt/stridebook
+docker compose exec api python -m app.cli create-user --username mom --name "<Mom's name>" --role admin
+```
+It asks for a password (at least 8 characters). Sign in on Mom's phone, then add the two coaches
+from **More → Coaches and logins**. Give each coach their password in person.
+
 ## 6. Prove backups work
 ```bash
 ssh stride@<fqdn>
@@ -98,8 +107,11 @@ command from `provision.sh` and update `.env`. Monthly restore drill.
 ```bash
 # Backend (needs a local Postgres)
 cd backend && pip install -r requirements-dev.txt
-DATABASE_URL=postgresql+psycopg://stridebook:stridebook@localhost:5432/stridebook alembic upgrade head
+export DATABASE_URL=postgresql+psycopg://stridebook:stridebook@localhost:5432/stridebook
+alembic upgrade head
+python -m app.cli create-user --username admin --name "Local Admin" --role admin
 uvicorn app.main:app --reload            # http://localhost:8000/api/docs
+pytest -q                                # uses DATABASE_URL pointing at a *test* database
 
 # Frontend (proxies /api to :8000)
 cd frontend && npm install && npm run dev   # http://localhost:5173

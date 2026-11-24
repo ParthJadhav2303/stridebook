@@ -31,3 +31,25 @@ body {
   outline: 3px solid var(--color-volt);
   outline-offset: 2px;
 }
+
+/* Three faint track lanes sweeping across navy headers — the app's one decorative motif. */
+.lane-stripes {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 120' preserveAspectRatio='none'%3E%3Cg fill='none' stroke-width='2'%3E%3Cpath d='M180 130 C 260 120, 330 70, 400 -10' stroke='%23C6F432' stroke-opacity='.35'/%3E%3Cpath d='M220 130 C 290 122, 350 80, 410 10' stroke='%23ffffff' stroke-opacity='.14'/%3E%3Cpath d='M260 130 C 320 124, 370 92, 420 35' stroke='%23ffffff' stroke-opacity='.10'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Bottom sheet slides up; toast rises. Both respond to an action, nothing moves on its own. */
+dialog.sheet[open] { animation: sheet-up 220ms ease-out; }
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
+.toast-in { animation: toast-in 180ms ease-out; }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.sheet[open], .toast-in { animation: none; }
+}
+
+input[type="date"], input[type="month"] { min-height: 3rem; }

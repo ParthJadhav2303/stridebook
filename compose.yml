@@ -41,6 +41,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
       CLUB_NAME: ${CLUB_NAME:-Endurance Athletics Club}
       CLUB_SHORT: ${CLUB_SHORT:-EAC}
+      TRACKING_START: ${TRACKING_START:-2026-06-01}
     depends_on:
       db: { condition: service_healthy }
 

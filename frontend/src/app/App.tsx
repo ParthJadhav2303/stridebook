@@ -1,72 +1,62 @@
-import { useEffect, useState } from "react";
-import { api, type Health, type PublicSettings } from "../api/client";
-import { LaneMark } from "../components/LaneMark";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { ApiError } from "../api/client";
+import { Layout } from "../components/Layout";
+import { ToastProvider } from "../components/Toast";
+import { AuthProvider, useAuth } from "../features/auth/AuthContext";
+import { LoginPage } from "../features/auth/LoginPage";
+import { DuesPage } from "../features/dues/DuesPage";
+import { HomePage } from "../features/home/HomePage";
+import { ClubPage, PasswordPage, SystemCheckPage } from "../features/more/AccountPages";
+import { FeeGroupsPage } from "../features/more/FeeGroupsPage";
+import { MorePage } from "../features/more/MorePage";
+import { UsersPage } from "../features/more/UsersPage";
+import { StudentFormPage } from "../features/students/StudentFormPage";
+import { StudentProfilePage } from "../features/students/StudentProfilePage";
+import { StudentsPage } from "../features/students/StudentsPage";
 
-type Check = { name: string; state: "checking" | "ok" | "fail"; detail: string };
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      // Don't retry "not allowed / not found"; do retry flaky networks.
+      retry: (count, err) => !(err instanceof ApiError && err.status >= 400 && err.status < 500) && count < 2,
+    },
+  },
+});
+
+function AdminOnly({ children }: { children: React.ReactElement }) {
+  const { isAdmin } = useAuth();
+  return isAdmin ? children : <Navigate to="/more" replace />;
+}
 
 export function App() {
-  const [club, setClub] = useState<PublicSettings | null>(null);
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    api.publicSettings().then(setClub).catch(() => undefined);
-    api
-      .health()
-      .then(setHealth)
-      .catch(() => setError("The app can't reach the server. Check that the api container is running."));
-  }, []);
-
-  const checks: Check[] = [
-    {
-      name: "Server",
-      state: error ? "fail" : health ? "ok" : "checking",
-      detail: error ?? (health ? "Responding" : "Checking…"),
-    },
-    {
-      name: "Database",
-      state: error ? "fail" : !health ? "checking" : health.db === "ok" ? "ok" : "fail",
-      detail: error ? "Not checked" : !health ? "Checking…" : health.db === "ok" ? "Connected" : "Can't connect",
-    },
-    { name: "Version", state: health ? "ok" : "checking", detail: health?.version ?? "—" },
-  ];
-
   return (
-    <div className="min-h-dvh flex flex-col">
-      <header className="bg-navy text-white px-5 pt-[max(env(safe-area-inset-top),1.25rem)] pb-6">
-        <div className="flex items-center gap-3">
-          <LaneMark className="size-11 text-white shrink-0" />
-          <div>
-            <p className="font-display text-2xl font-bold leading-none tracking-wide">StrideBook</p>
-            <p className="text-white/70 text-sm mt-1">{club?.club_name ?? "Loading club…"}</p>
-          </div>
-        </div>
-      </header>
-
-      <main className="flex-1 px-5 py-6 max-w-lg w-full mx-auto">
-        <h1 className="font-display text-3xl font-bold text-navy">System check</h1>
-        <p className="text-muted mt-1">
-          Fee tracking arrives in the next update. This page confirms the app is set up correctly.
-        </p>
-
-        <ul className="mt-6 divide-y divide-line border-y border-line bg-white">
-          {checks.map((c) => (
-            <li key={c.name} className="flex items-center justify-between px-4 py-4">
-              <span className="font-semibold">{c.name}</span>
-              <span className="flex items-center gap-2 text-right">
-                <span
-                  aria-hidden="true"
-                  className={
-                    "size-2.5 rounded-full " +
-                    (c.state === "ok" ? "bg-paid" : c.state === "fail" ? "bg-unpaid" : "bg-line")
-                  }
-                />
-                <span className={c.state === "fail" ? "text-unpaid" : "text-muted"}>{c.detail}</span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      </main>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ToastProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<Layout />}>
+                <Route index element={<HomePage />} />
+                <Route path="students" element={<StudentsPage />} />
+                <Route path="students/new" element={<StudentFormPage />} />
+                <Route path="students/:id" element={<StudentProfilePage />} />
+                <Route path="students/:id/edit" element={<StudentFormPage />} />
+                <Route path="dues" element={<DuesPage />} />
+                <Route path="more" element={<MorePage />} />
+                <Route path="more/fee-groups" element={<FeeGroupsPage />} />
+                <Route path="more/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
+                <Route path="more/club" element={<AdminOnly><ClubPage /></AdminOnly>} />
+                <Route path="more/password" element={<PasswordPage />} />
+                <Route path="more/status" element={<SystemCheckPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ToastProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
