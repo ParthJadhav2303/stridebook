@@ -60,7 +60,10 @@ class Payment(Base):
     paid_on: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str | None] = mapped_column(Text)
     received_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    is_voided: Mapped[bool] = mapped_column(Boolean, default=False)  # voiding arrives in Phase 2
+    is_voided: Mapped[bool] = mapped_column(Boolean, default=False)
+    voided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    void_reason: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     allocations: Mapped[list["PaymentAllocation"]] = relationship(back_populates="payment")

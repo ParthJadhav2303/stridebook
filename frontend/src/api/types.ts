@@ -71,6 +71,42 @@ export type Payment = {
   received_by_name: string;
   created_at: string;
   months: { period: string; amount: number }[];
+  is_voided: boolean;
+  void_reason: string | null;
+  voided_at: string | null;
+  can_void: boolean;
+};
+
+export type Activity = {
+  id: number;
+  action: string;
+  entity: string;
+  entity_id: number | null;
+  summary: string;
+  user_name: string | null;
+  created_at: string;
+};
+
+export type ImportRow = {
+  row: number;
+  student_name: string;
+  month: string | null;
+  paid_on: string | null;
+  amount: number | null;
+  mode: PaymentMode;
+  student_id: number | null;
+  status: "ok" | "new_student" | "duplicate" | "error";
+  message: string | null;
+};
+
+export type ImportPreview = {
+  filename: string;
+  rows: ImportRow[];
+  new_students: { name: string; first_month: string; rows: number; total: number }[];
+  ok_rows: number;
+  error_rows: number;
+  duplicate_rows: number;
+  total_amount: number;
 };
 
 export type PaymentInput = {

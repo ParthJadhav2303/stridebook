@@ -38,7 +38,7 @@ function UserCard({ u }: { u: User }) {
   }
 
   return (
-    <li className={`bg-white rounded-xl border border-line p-4 ${u.is_active ? "" : "opacity-60"}`}>
+    <li className={`bg-surface rounded-2xl shadow-card p-4 ${u.is_active ? "" : "opacity-60"}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-lg">
@@ -101,7 +101,7 @@ function AddUser({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <form onSubmit={(e) => submit(e).catch(() => undefined)} className="bg-white rounded-xl border border-line p-5 space-y-4">
+    <form onSubmit={(e) => submit(e).catch(() => undefined)} className="bg-surface rounded-2xl shadow-card p-5 space-y-4">
       <h2 className="font-display text-2xl font-bold text-navy">Add a coach</h2>
       <Field label="Full name" required value={name} onChange={(e) => setName(e.target.value)} />
       <Field

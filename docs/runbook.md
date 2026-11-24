@@ -55,6 +55,13 @@ Let the VM pull private images. On GitHub: **Settings → Developer settings →
 echo <token> | docker login ghcr.io -u <your-github-username> --password-stdin
 ```
 
+## If CI fails in a few seconds
+Open the failed run. If it says *"The job was not started because your account is locked due to a
+billing issue"*, GitHub Actions is blocked on your account (nothing is wrong with the code). Fix it in
+GitHub → **Settings → Billing and plans** (update the payment method or pay the outstanding bill), then
+**Actions → CI → Run workflow**. Until then, deploy with `./infra/deploy-from-source.sh <fqdn>` and
+skip the `docker login ghcr.io` step.
+
 ## 5. Deploy
 From your laptop, after CI is green on `main`:
 ```bash

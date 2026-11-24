@@ -9,6 +9,7 @@ from app.core.dates import current_month, month_start, parse_month
 from app.core.db import get_db
 from app.core.deps import get_current_user, require_admin
 from app.models import FeeGroup, FeeGroupRate, User
+from app.modules.activity.service import log, rupees
 from app.modules.dues.service import reprice_group
 
 router = APIRouter(prefix="/fee-groups", tags=["fee groups"])
@@ -86,6 +87,14 @@ def set_rate(
         )
     db.flush()
     reprice_group(db, group_id, effective)
+    log(
+        db,
+        admin,
+        "fee.rate",
+        "fee_group",
+        group_id,
+        f"Set {group.name} fee to {rupees(body.monthly_amount)} from {effective.strftime('%B %Y')}.",
+    )
     db.commit()
     db.refresh(group)
     return _out(group)

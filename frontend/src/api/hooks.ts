@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { get, patch, post } from "./client";
+import { get, patch, post, upload } from "./client";
 import type {
+  Activity,
   Dashboard,
   DuesSummary,
   FeeGroup,
   Health,
+  ImportPreview,
   LedgerMonth,
   Payment,
   PaymentInput,
@@ -130,5 +132,39 @@ export function useUpdateUser() {
     mutationFn: ({ id, ...body }: { id: number; is_active?: boolean; role?: string; new_password?: string }) =>
       patch<User>(`/users/${id}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+}
+
+export const usePayment = (id: number) =>
+  useQuery({ queryKey: ["payments", "one", id], queryFn: () => get<Payment>(`/payments/${id}`), enabled: id > 0 });
+
+export function useVoidPayment() {
+  const invalidate = useInvalidateMoney();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) => post<Payment>(`/payments/${id}/void`, { reason: reason ?? "" }),
+    onSuccess: () => {
+      invalidate();
+      qc.invalidateQueries({ queryKey: ["activity"] });
+    },
+  });
+}
+
+export const useActivity = () =>
+  useQuery({ queryKey: ["activity"], queryFn: () => get<Activity[]>("/activity?limit=100") });
+
+export function useImportPreview() {
+  return useMutation({ mutationFn: (file: File) => upload<ImportPreview>("/import/preview", file) });
+}
+
+export function useImportCommit() {
+  const invalidate = useInvalidateMoney();
+  return useMutation({
+    mutationFn: (body: {
+      filename: string;
+      rows: { student_name: string; month: string; paid_on: string; amount: number; mode: string }[];
+      new_students: { name: string; fee_group_id: number }[];
+    }) => post<{ payments_created: number; students_created: number; total_amount: number }>("/import/commit", body),
+    onSuccess: invalidate,
   });
 }

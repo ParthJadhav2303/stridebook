@@ -1,40 +1,68 @@
 @import "tailwindcss";
 
-/* "Track & Endurance" tokens. Status colours are only ever used with a text label. */
+/* StrideBook, "Track & Endurance" v2.
+   Night-stadium navy heroes, a volt accent used sparingly, cool paper surfaces.
+   Shape signature: the "spike cut", a corner radius that is large only at the top-right,
+   used on hero cards and primary actions. Status colours always come with a word. */
 @theme {
+  --color-night: #081a2e;
   --color-navy: #0f2a4a;
-  --color-navy-soft: #1d3d63;
+  --color-navy-soft: #1b3d63;
+  --color-navy-line: #2b4a6e;
   --color-volt: #c6f432;
+  --color-volt-deep: #9fd11a;
   --color-brick: #a8432e;
-  --color-paper: #f7f8fa;
-  --color-ink: #14202e;
-  --color-muted: #5b6676;
-  --color-line: #dde2e8;
+  --color-paper: #eef1f5;
+  --color-surface: #ffffff;
+  --color-ink: #13202f;
+  --color-muted: #5a6778;
+  --color-line: #dce2ea;
 
-  --color-paid: #16a34a;
+  --color-paid: #15803d;
   --color-partial: #b45309;
-  --color-unpaid: #dc2626;
+  --color-unpaid: #d02a2a;
 
   --font-sans: "Barlow", system-ui, sans-serif;
   --font-display: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+
+  --radius-cut: 8px 26px 8px 8px;
+  --shadow-card: 0 1px 2px rgb(15 42 74 / 0.06), 0 6px 20px -8px rgb(15 42 74 / 0.12);
+  --shadow-float: 0 10px 30px -8px rgb(8 26 46 / 0.45);
+}
+
+@utility rounded-cut {
+  border-radius: var(--radius-cut);
+}
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+@utility shadow-float {
+  box-shadow: var(--shadow-float);
 }
 
 html {
-  font-size: 17px; /* larger base for easy reading on phones */
+  font-size: 17px; /* larger base for reading on phones */
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   @apply bg-paper text-ink font-sans antialiased;
+  font-variant-numeric: tabular-nums;
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-volt);
+  outline: 3px solid var(--color-volt-deep);
   outline-offset: 2px;
 }
 
-/* Three faint track lanes sweeping across navy headers — the app's one decorative motif. */
-.lane-stripes {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 120' preserveAspectRatio='none'%3E%3Cg fill='none' stroke-width='2'%3E%3Cpath d='M180 130 C 260 120, 330 70, 400 -10' stroke='%23C6F432' stroke-opacity='.35'/%3E%3Cpath d='M220 130 C 290 122, 350 80, 410 10' stroke='%23ffffff' stroke-opacity='.14'/%3E%3Cpath d='M260 130 C 320 124, 370 92, 420 35' stroke='%23ffffff' stroke-opacity='.10'/%3E%3C/g%3E%3C/svg%3E");
+/* Night-stadium backdrop: deep navy, a floodlight glow top-right, faint curved lanes. */
+.stadium {
+  background-color: var(--color-navy);
+  background-image:
+    radial-gradient(120% 80% at 100% 0%, rgb(198 244 50 / 0.16), transparent 55%),
+    radial-gradient(80% 60% at 0% 100%, rgb(27 61 99 / 0.9), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 240' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.2'%3E%3Cpath d='M140 260 C 230 245, 330 170, 420 40' stroke-opacity='.10'/%3E%3Cpath d='M185 260 C 270 248, 350 185, 430 75' stroke-opacity='.08'/%3E%3Cpath d='M230 260 C 305 250, 370 200, 440 110' stroke-opacity='.06'/%3E%3C/g%3E%3C/svg%3E"),
+    linear-gradient(180deg, var(--color-navy) 0%, var(--color-night) 100%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
 }
@@ -42,14 +70,17 @@ body {
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* Bottom sheet slides up; toast rises. Both respond to an action, nothing moves on its own. */
-dialog.sheet[open] { animation: sheet-up 220ms ease-out; }
-@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } }
-.toast-in { animation: toast-in 180ms ease-out; }
-@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } }
+/* Motion answers an action, except one moment: the lap on the home track draws in once. */
+dialog.sheet[open] { animation: sheet-up 240ms cubic-bezier(.2,.8,.2,1); }
+dialog.sheet::backdrop { background: rgb(8 26 46 / 0.55); backdrop-filter: blur(2px); }
+@keyframes sheet-up { from { transform: translateY(32px); opacity: 0; } }
+.toast-in { animation: toast-in 200ms ease-out; }
+@keyframes toast-in { from { transform: translateY(10px); opacity: 0; } }
+.lap-draw { animation: lap-draw 1100ms cubic-bezier(.25,.8,.25,1) both 150ms; }
+@keyframes lap-draw { from { stroke-dashoffset: var(--lap-length); } }
 
 @media (prefers-reduced-motion: reduce) {
-  dialog.sheet[open], .toast-in { animation: none; }
+  dialog.sheet[open], .toast-in, .lap-draw { animation: none; }
 }
 
 input[type="date"], input[type="month"] { min-height: 3rem; }

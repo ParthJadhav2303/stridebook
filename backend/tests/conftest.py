@@ -45,7 +45,15 @@ def clean_db():
     with engine.begin() as conn:
         conn.execute(text("DELETE FROM fee_group_rates WHERE effective_from <> '2020-01-01'"))
         conn.execute(text("UPDATE fee_group_rates SET created_by = NULL"))
-        for table in ("payment_allocations", "payments", "fee_dues", "students", "users", "app_settings"):
+        for table in (
+            "audit_log",
+            "payment_allocations",
+            "payments",
+            "fee_dues",
+            "students",
+            "users",
+            "app_settings",
+        ):
             conn.execute(text(f"DELETE FROM {table}"))
         conn.execute(text("ALTER SEQUENCE receipt_no_seq RESTART WITH 1"))
 

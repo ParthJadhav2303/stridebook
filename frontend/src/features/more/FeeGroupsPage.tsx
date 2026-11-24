@@ -45,7 +45,7 @@ function GroupCard({ g, canEdit }: { g: FeeGroup; canEdit: boolean }) {
   }
 
   return (
-    <section className="bg-white rounded-xl border border-line p-5">
+    <section className="bg-surface rounded-2xl shadow-card p-5">
       <h2 className="font-display text-2xl font-bold text-navy">{g.name}</h2>
       <p className="font-display text-4xl font-bold mt-1">
         {money(g.current_amount)}

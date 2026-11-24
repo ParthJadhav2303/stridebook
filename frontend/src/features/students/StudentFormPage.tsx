@@ -86,7 +86,7 @@ function StudentForm({ existing }: { existing?: Student }) {
 
           <div>
             <label className="flex items-center gap-3 min-h-11">
-              <input type="checkbox" className="size-5" checked={specialFee} onChange={(e) => setSpecialFee(e.target.checked)} />
+              <input type="checkbox" className="size-5 accent-navy" checked={specialFee} onChange={(e) => setSpecialFee(e.target.checked)} />
               <span className="font-semibold">Different fee for this student</span>
             </label>
             {specialFee && (
@@ -136,7 +136,7 @@ function StudentForm({ existing }: { existing?: Student }) {
             </>
           )}
 
-          <details className="rounded-lg border border-line bg-white px-4 py-2">
+          <details className="rounded-2xl bg-surface shadow-card px-4 py-2">
             <summary className="min-h-10 flex items-center font-semibold cursor-pointer">More details (optional)</summary>
             <div className="space-y-4 py-3">
               <Field label="Other phone" type="tel" inputMode="tel" value={altPhone} onChange={(e) => setAltPhone(e.target.value)} />

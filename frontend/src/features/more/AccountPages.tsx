@@ -106,7 +106,7 @@ export function SystemCheckPage() {
       <PageHeader title="System check" back="/more" />
       <Page>
         {isLoading && <Loading label="Checking…" />}
-        <ul className="divide-y divide-line border-y border-line bg-white">
+        <ul className="divide-y divide-line bg-surface rounded-2xl shadow-card overflow-hidden">
           {rows.map((r) => (
             <li key={r.name} className="flex items-center justify-between px-4 py-4">
               <span className="font-semibold">{r.name}</span>

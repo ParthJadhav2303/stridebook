@@ -8,9 +8,12 @@ import { LoginPage } from "../features/auth/LoginPage";
 import { DuesPage } from "../features/dues/DuesPage";
 import { HomePage } from "../features/home/HomePage";
 import { ClubPage, PasswordPage, SystemCheckPage } from "../features/more/AccountPages";
+import { ActivityPage } from "../features/more/ActivityPage";
+import { ImportPage } from "../features/more/ImportPage";
 import { FeeGroupsPage } from "../features/more/FeeGroupsPage";
 import { MorePage } from "../features/more/MorePage";
 import { UsersPage } from "../features/more/UsersPage";
+import { ReceiptPage } from "../features/payments/ReceiptPage";
 import { StudentFormPage } from "../features/students/StudentFormPage";
 import { StudentProfilePage } from "../features/students/StudentProfilePage";
 import { StudentsPage } from "../features/students/StudentsPage";
@@ -45,10 +48,13 @@ export function App() {
                 <Route path="students/:id" element={<StudentProfilePage />} />
                 <Route path="students/:id/edit" element={<StudentFormPage />} />
                 <Route path="dues" element={<DuesPage />} />
+                <Route path="payments/:id" element={<ReceiptPage />} />
                 <Route path="more" element={<MorePage />} />
                 <Route path="more/fee-groups" element={<FeeGroupsPage />} />
                 <Route path="more/users" element={<AdminOnly><UsersPage /></AdminOnly>} />
                 <Route path="more/club" element={<AdminOnly><ClubPage /></AdminOnly>} />
+                <Route path="more/activity" element={<AdminOnly><ActivityPage /></AdminOnly>} />
+                <Route path="more/import" element={<AdminOnly><ImportPage /></AdminOnly>} />
                 <Route path="more/password" element={<PasswordPage />} />
                 <Route path="more/status" element={<SystemCheckPage />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

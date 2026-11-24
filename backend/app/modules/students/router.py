@@ -9,6 +9,7 @@ from app.core.dates import current_month, month_start, parse_month, today
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models import FeeDue, FeeGroup, Student, User
+from app.modules.activity.service import log
 from app.modules.dues.service import ensure_dues, fee_for, reprice_untouched_dues
 from app.modules.students.schemas import Ledger, LedgerMonth, StudentCreate, StudentOut, StudentUpdate
 
@@ -114,6 +115,8 @@ def create_student(
     db.add(student)
     db.flush()
     ensure_dues(db, student_id=student.id)
+    group = db.get(FeeGroup, student.fee_group_id)
+    log(db, user, "student.create", "student", student.id, f"Added {student.full_name} to {group.name}.")
     db.commit()
     return get_student_out(db, student.id)
 
@@ -132,12 +135,16 @@ def get_student(
 
 @router.patch("/{student_id}", response_model=StudentOut)
 def update_student(
-    student_id: int, body: StudentUpdate, _: User = Depends(get_current_user), db: Session = Depends(get_db)
+    student_id: int,
+    body: StudentUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     student = db.get(Student, student_id, with_for_update=True)
     if student is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Student not found.")
     changes = body.model_dump(exclude_unset=True)
+    before = {k: getattr(student, k) for k in changes}
     if "fee_group_id" in changes and db.get(FeeGroup, changes["fee_group_id"]) is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Choose a valid fee group.")
     fee_changed = any(k in changes for k in ("fee_group_id", "custom_monthly_fee"))
@@ -163,6 +170,15 @@ def update_student(
     if fee_changed:
         reprice_untouched_dues(db, student, current_month())
     ensure_dues(db, student_id=student.id)
+    changed = {k: (str(before[k]), str(v)) for k, v in changes.items() if before[k] != v}
+    if changed:
+        what = ", ".join(k.replace("_", " ") for k in changed)
+        summary = f"Updated {student.full_name}: {what}."
+        if "status" in changed:
+            summary = f"Marked {student.full_name} as {student.status}." + (
+                f" Also changed {what}." if len(changed) > 1 else ""
+            )
+        log(db, user, "student.update", "student", student.id, summary, {"changes": changed})
     db.commit()
     return get_student_out(db, student.id)
 

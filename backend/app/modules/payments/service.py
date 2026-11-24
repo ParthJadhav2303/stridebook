@@ -7,7 +7,7 @@
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select, text
@@ -111,3 +111,42 @@ def record_payment(db: Session, req: PaymentRequest, user: User) -> Payment:
 
     db.flush()
     return payment
+
+
+UNDO_MINUTES = 10
+
+
+def can_void(payment: Payment, user: User) -> bool:
+    """Admins can cancel any payment. Whoever recorded it can undo it for 10 minutes."""
+    if payment.is_voided:
+        return False
+    if user.role == "admin":
+        return True
+    age = datetime.now(UTC) - payment.created_at
+    return payment.received_by == user.id and age <= timedelta(minutes=UNDO_MINUTES)
+
+
+def void_payment(db: Session, payment: Payment, user: User, reason: str) -> None:
+    """Reverse a payment: take its money back off each month it covered."""
+    if payment.is_voided:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This payment is already cancelled.")
+    if not can_void(payment, user):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Only an admin can cancel this payment now. Undo works for {UNDO_MINUTES} minutes after saving.",
+        )
+    db.get(Student, payment.student_id, with_for_update=True)
+    for alloc in payment.allocations:
+        due = alloc.fee_due
+        due.amount_paid -= alloc.amount
+        due.refresh_status()
+        # Advance months that now have nothing paid are not owed yet; remove them.
+        if due.period > current_month() and due.amount_paid == 0:
+            db.delete(alloc)
+            db.flush()
+            db.delete(due)
+    payment.is_voided = True
+    payment.voided_by = user.id
+    payment.voided_at = datetime.now(UTC)
+    payment.void_reason = reason.strip() or None
+    db.flush()

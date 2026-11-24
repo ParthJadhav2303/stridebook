@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.core.db import get_db
 from app.core.deps import require_admin
 from app.models import AppSetting, User
+from app.modules.activity.service import log
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -40,12 +41,16 @@ def public_settings(db: Session = Depends(get_db)) -> PublicSettings:
 
 
 @router.patch("", response_model=PublicSettings)
-def update_settings(body: SettingsUpdate, _: User = Depends(require_admin), db: Session = Depends(get_db)):
+def update_settings(
+    body: SettingsUpdate, admin: User = Depends(require_admin), db: Session = Depends(get_db)
+):
     for key, value in body.model_dump(exclude_none=True).items():
         row = db.get(AppSetting, key)
         if row:
             row.value = value
         else:
             db.add(AppSetting(key=key, value=value))
+    if body.club_name:
+        log(db, admin, "settings.update", "settings", None, f"Changed club name to {body.club_name}.")
     db.commit()
     return read_public(db)

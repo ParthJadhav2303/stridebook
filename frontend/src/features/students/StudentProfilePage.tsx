@@ -3,8 +3,9 @@ import { Link, useParams } from "react-router";
 import { useLedger, usePayments, useStudent } from "../../api/hooks";
 import type { LedgerMonth, Student } from "../../api/types";
 import { Page, PageHeader } from "../../components/Layout";
-import { Button, ErrorNote, Loading, cx, statusLabel } from "../../components/ui";
-import { fmtDay, fmtMonth, fmtMonthList, fmtMonthShort, money, thisMonth, whatsappLink } from "../../lib/format";
+import { Avatar, Button, Card, ErrorNote, Loading, SectionTitle, cx, statusLabel } from "../../components/ui";
+import { fmtDay, fmtMonth, fmtMonthShort, money, thisMonth, whatsappLink } from "../../lib/format";
+import { PaymentRow } from "../home/HomePage";
 import { PaymentSheet } from "../payments/PaymentSheet";
 
 export function StudentProfilePage() {
@@ -17,20 +18,23 @@ export function StudentProfilePage() {
       <PageHeader
         title={s?.full_name ?? "Student"}
         back="/students"
+        subtitle={s ? `${s.fee_group_name}, ${money(s.monthly_fee)} a month${s.custom_monthly_fee != null ? " (special fee)" : ""}` : ""}
         action={
           s && (
-            <Link to={`/students/${id}/edit`} className="min-h-11 px-3 grid place-items-center font-semibold text-white/90">
+            <Link to={`/students/${id}/edit`} className="min-h-11 px-4 rounded-full bg-white/10 grid place-items-center font-semibold">
               Edit
             </Link>
           )
         }
-      />
-      <Page className="space-y-5">
+      >
+        {s && <Hero s={s} onPay={() => setPaying(true)} />}
+      </PageHeader>
+      <Page>
         <ErrorNote error={error} />
         {!s && !error && <Loading />}
         {s && (
           <>
-            <Summary s={s} onPay={() => setPaying(true)} />
+            <Details s={s} />
             <YearGrid studentId={id} />
             <History studentId={id} />
           </>
@@ -41,7 +45,7 @@ export function StudentProfilePage() {
   );
 }
 
-function Summary({ s, onPay }: { s: Student; onPay: () => void }) {
+function Hero({ s, onPay }: { s: Student; onPay: () => void }) {
   const reminder =
     s.outstanding_amount > 0
       ? whatsappLink(
@@ -49,97 +53,89 @@ function Summary({ s, onPay }: { s: Student; onPay: () => void }) {
           `Hello${s.parent_name ? ` ${s.parent_name}` : ""}, a gentle reminder that ${s.full_name}'s fees of ${money(s.outstanding_amount)} ` +
             `are pending (${s.outstanding_months} ${s.outstanding_months === 1 ? "month" : "months"}). Thank you!`,
         )
-      : null;
-
+      : whatsappLink(s.parent_phone, "");
+  const pill = "min-h-12 rounded-2xl bg-white/10 grid place-items-center font-semibold";
   return (
-    <section className="bg-white rounded-xl border border-line p-5 space-y-4">
+    <div>
       {s.status !== "active" && (
-        <p className="rounded-lg bg-line/60 px-3 py-2 font-semibold text-muted">
+        <p className="mb-3 inline-block rounded-full bg-white/15 px-3 py-1 text-sm font-semibold">
           {s.status === "left" ? `Left on ${s.leaving_date ? fmtDay(s.leaving_date) : "—"}` : "Paused: no new monthly fees"}
         </p>
       )}
-      <div>
-        <p className={cx("font-display text-4xl font-bold leading-none", s.outstanding_amount > 0 ? "text-unpaid" : "text-paid")}>
-          {s.outstanding_amount > 0 ? money(s.outstanding_amount) : "All paid"}
-        </p>
-        <p className="text-muted mt-1">
-          {s.outstanding_amount > 0
-            ? `pending for ${s.outstanding_months} ${s.outstanding_months === 1 ? "month" : "months"}`
-            : `up to ${fmtMonth(thisMonth())}`}
-        </p>
+      <div className="flex items-end gap-4">
+        <Avatar name={s.full_name} tone={s.fee_group_id - 1} size="lg" />
+        <div>
+          <p className={cx("font-display text-[2.8rem] font-bold leading-[0.9]", s.outstanding_amount > 0 ? "text-volt" : "text-white")}>
+            {s.outstanding_amount > 0 ? money(s.outstanding_amount) : "All paid"}
+          </p>
+          <p className="text-white/75 mt-1">
+            {s.outstanding_amount > 0
+              ? `pending for ${s.outstanding_months} ${s.outstanding_months === 1 ? "month" : "months"}`
+              : `up to ${fmtMonth(thisMonth())}`}
+          </p>
+        </div>
       </div>
-
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <Info label="Group" value={s.fee_group_name} />
-        <Info label="Monthly fee" value={`${money(s.monthly_fee)}${s.custom_monthly_fee != null ? " (special)" : ""}`} />
-        <Info label="Parent" value={s.parent_name ?? "—"} />
-        <Info label="Joined" value={fmtDay(s.joining_date)} />
-      </dl>
-
       {s.parent_phone && (
-        <div className="grid grid-cols-2 gap-2">
-          <a href={`tel:${s.parent_phone}`} className="min-h-12 rounded-lg border-2 border-line grid place-items-center font-semibold text-navy">
+        <div className="grid grid-cols-2 gap-2 mt-4">
+          <a href={`tel:${s.parent_phone}`} className={pill}>
             Call parent
           </a>
-          {reminder ? (
-            <a href={reminder} target="_blank" rel="noreferrer" className="min-h-12 rounded-lg border-2 border-line grid place-items-center font-semibold text-navy">
-              Send reminder
-            </a>
-          ) : (
-            <a
-              href={whatsappLink(s.parent_phone, "") ?? "#"}
-              target="_blank"
-              rel="noreferrer"
-              className="min-h-12 rounded-lg border-2 border-line grid place-items-center font-semibold text-navy"
-            >
-              WhatsApp
-            </a>
-          )}
+          <a href={reminder ?? "#"} target="_blank" rel="noreferrer" className={pill}>
+            {s.outstanding_amount > 0 ? "Send reminder" : "WhatsApp"}
+          </a>
         </div>
       )}
-      <Button full onClick={onPay} className="min-h-14 text-lg">
+      <Button variant="volt" full onClick={onPay} className="mt-2 min-h-14 text-lg">
         Record payment
       </Button>
-    </section>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="font-semibold">{value}</dd>
     </div>
   );
 }
 
+function Details({ s }: { s: Student }) {
+  const items = [
+    ["Parent", s.parent_name ?? "—"],
+    ["Phone", s.parent_phone ?? "—"],
+    ["Joined", fmtDay(s.joining_date)],
+    ["Group", s.fee_group_name],
+  ];
+  return (
+    <Card className="p-4">
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+        {items.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-sm text-muted">{label}</dt>
+            <dd className="font-semibold truncate">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {s.notes && <p className="mt-3 pt-3 border-t border-line text-muted">{s.notes}</p>}
+    </Card>
+  );
+}
+
 const TILE: Record<string, string> = {
-  paid: "bg-paid text-white border-paid",
-  partial: "bg-partial/10 text-partial border-partial",
-  unpaid: "bg-white text-unpaid border-unpaid",
-  waived: "bg-line text-muted border-line",
+  paid: "bg-paid text-white",
+  partial: "bg-partial/12 text-partial ring-2 ring-inset ring-partial/50",
+  unpaid: "bg-surface text-unpaid ring-2 ring-inset ring-unpaid/45",
+  waived: "bg-line text-muted",
 };
 
 function YearGrid({ studentId }: { studentId: number }) {
   const [year, setYear] = useState(new Date().getFullYear());
   const { data } = useLedger(studentId, year);
+  const btn = "size-11 grid place-items-center rounded-full bg-surface shadow-card text-2xl text-navy disabled:opacity-25";
   return (
     <section aria-labelledby="year-h">
-      <div className="flex items-center justify-between mb-2">
-        <h2 id="year-h" className="font-display text-2xl font-bold text-navy">
+      <div className="flex items-end justify-between mt-7 mb-2.5">
+        <h2 id="year-h" className="font-display text-[1.6rem] font-bold text-navy leading-none">
           Fees in {year}
         </h2>
-        <div className="flex">
-          <button type="button" aria-label="Previous year" onClick={() => setYear(year - 1)} className="size-11 text-2xl text-navy">
+        <div className="flex gap-2">
+          <button type="button" aria-label="Previous year" onClick={() => setYear(year - 1)} className={btn}>
             ‹
           </button>
-          <button
-            type="button"
-            aria-label="Next year"
-            disabled={year >= new Date().getFullYear() + 1}
-            onClick={() => setYear(year + 1)}
-            className="size-11 text-2xl text-navy disabled:opacity-25"
-          >
+          <button type="button" aria-label="Next year" disabled={year >= new Date().getFullYear() + 1} onClick={() => setYear(year + 1)} className={btn}>
             ›
           </button>
         </div>
@@ -149,7 +145,7 @@ function YearGrid({ studentId }: { studentId: number }) {
       ) : (
         <ol className="grid grid-cols-4 gap-2">
           {data.months.map((m) => (
-            <MonthTile key={m.period} m={m} />
+            <MonthTile key={m.period} m={m} current={m.period.slice(0, 7) === thisMonth()} />
           ))}
         </ol>
       )}
@@ -157,19 +153,19 @@ function YearGrid({ studentId }: { studentId: number }) {
   );
 }
 
-function MonthTile({ m }: { m: LedgerMonth }) {
+function MonthTile({ m, current }: { m: LedgerMonth; current: boolean }) {
   const label = m.status ? statusLabel(m.status) : "";
-  const detail =
-    m.status === "partial" ? `${money(m.amount_paid)} of ${money(m.amount_due)}` : m.status ? money(m.amount_due) : "";
+  const detail = m.status === "partial" ? `${money(m.amount_paid)} of ${money(m.amount_due)}` : m.status ? money(m.amount_due) : "";
   return (
     <li
       className={cx(
-        "rounded-lg border-2 px-2 py-2 min-h-18 text-center",
-        m.status ? TILE[m.status] : "border-dashed border-line text-muted/60",
+        "relative rounded-xl px-2 py-2.5 min-h-19 text-center",
+        m.status ? TILE[m.status] : "border-2 border-dashed border-line text-muted/60",
+        current && "outline-3 outline-offset-2 outline-volt-deep",
       )}
-      aria-label={`${fmtMonth(m.period)}: ${m.status ? `${label}, ${detail}` : "not charged"}`}
+      aria-label={`${fmtMonth(m.period)}: ${m.status ? `${label}, ${detail}` : "not charged"}${current ? " (this month)" : ""}`}
     >
-      <span className="block font-display text-lg font-bold leading-tight">{fmtMonthShort(m.period)}</span>
+      <span className="block font-display text-xl font-bold leading-tight">{fmtMonthShort(m.period)}</span>
       <span className="block text-xs font-semibold">{label}</span>
       {m.status === "partial" && <span className="block text-[0.7rem] leading-tight">{detail}</span>}
     </li>
@@ -179,28 +175,16 @@ function MonthTile({ m }: { m: LedgerMonth }) {
 function History({ studentId }: { studentId: number }) {
   const { data, error } = usePayments({ student_id: studentId, limit: 50 });
   return (
-    <section aria-labelledby="hist-h">
-      <h2 id="hist-h" className="font-display text-2xl font-bold text-navy mb-2">
-        Payments
-      </h2>
+    <section>
+      <SectionTitle>Payments</SectionTitle>
       <ErrorNote error={error} />
-      {data?.length === 0 && <p className="text-muted bg-white rounded-xl border border-line px-4 py-6 text-center">No payments recorded yet.</p>}
+      {data?.length === 0 && <Card className="px-4 py-8 text-center text-muted">No payments recorded yet.</Card>}
       {data && data.length > 0 && (
-        <ul className="bg-white rounded-xl border border-line divide-y divide-line">
+        <Card className="divide-y divide-line overflow-hidden">
           {data.map((p) => (
-            <li key={p.id} className="px-4 py-3">
-              <div className="flex justify-between gap-3">
-                <span className="font-semibold">{money(p.amount)}</span>
-                <span className="text-muted">{fmtDay(p.paid_on)}</span>
-              </div>
-              <p className="text-sm text-muted">
-                {p.mode === "upi" ? "UPI" : "Cash"}, for {fmtMonthList(p.months.map((m) => m.period))}. Received by {p.received_by_name}.
-              </p>
-              <p className="text-xs text-muted mt-0.5">Receipt {p.receipt_no}</p>
-              {p.note && <p className="text-sm mt-1">{p.note}</p>}
-            </li>
+            <PaymentRow key={p.id} p={p} showName={false} />
           ))}
-        </ul>
+        </Card>
       )}
     </section>
   );

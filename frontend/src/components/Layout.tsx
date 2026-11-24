@@ -22,13 +22,10 @@ export function Layout() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   return (
-    <div className="min-h-dvh pb-24">
+    <div className="min-h-dvh pb-32">
       <Outlet />
-      <nav
-        aria-label="Main"
-        className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-line pb-[env(safe-area-inset-bottom)]"
-      >
-        <ul className="max-w-lg mx-auto grid grid-cols-4">
+      <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pointer-events-none">
+        <ul className="pointer-events-auto max-w-lg mx-auto grid grid-cols-4 gap-1 p-1.5 rounded-[26px] bg-night/95 backdrop-blur shadow-float">
           {TABS.map((t) => (
             <li key={t.to}>
               <NavLink
@@ -36,15 +33,14 @@ export function Layout() {
                 end={t.to === "/"}
                 className={({ isActive }) =>
                   cx(
-                    "flex flex-col items-center gap-0.5 pt-2 pb-2 min-h-16 text-sm font-semibold relative",
-                    isActive ? "text-navy" : "text-muted",
+                    "flex flex-col items-center gap-0.5 py-2 min-h-15 rounded-[20px] text-[0.8rem] font-semibold transition-colors",
+                    isActive ? "bg-white/10 text-white" : "text-white/55",
                   )
                 }
               >
                 {({ isActive }) => (
                   <>
-                    {isActive && <span className="absolute top-0 inset-x-6 h-1 rounded-b bg-volt" />}
-                    {t.icon}
+                    <span className={isActive ? "text-volt" : ""}>{t.icon}</span>
                     {t.label}
                   </>
                 )}
@@ -57,30 +53,53 @@ export function Layout() {
   );
 }
 
-/** Navy page header. The home screen shows the club; inner pages show a back button. */
-export function PageHeader({ title, back, action }: { title: string; back?: boolean | string; action?: ReactNode }) {
+export function BrandMark({ className }: { className?: string }) {
+  return (
+    <span className={cx("grid place-items-center rounded-xl bg-white/8 ring-1 ring-white/15", className)}>
+      <LaneMark className="size-[70%] text-white" />
+    </span>
+  );
+}
+
+/** Night-stadium header. Inner pages get a back button; children render inside the dark band. */
+export function PageHeader({
+  title,
+  back,
+  action,
+  subtitle,
+  children,
+}: {
+  title: string;
+  back?: boolean | string;
+  action?: ReactNode;
+  subtitle?: string | null;
+  children?: ReactNode;
+}) {
   const { data: club } = usePublicSettings();
   const navigate = useNavigate();
   return (
-    <header className="bg-navy text-white px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-4 lane-stripes">
-      <div className="max-w-lg mx-auto flex items-center gap-3 min-h-12">
-        {back ? (
-          <button
-            type="button"
-            onClick={() => (typeof back === "string" ? navigate(back) : navigate(-1))}
-            aria-label="Back"
-            className="-ml-2 size-11 grid place-items-center text-3xl leading-none"
-          >
-            ‹
-          </button>
-        ) : (
-          <LaneMark className="size-9 text-white shrink-0" />
-        )}
-        <div className="flex-1 min-w-0">
-          <h1 className="font-display text-[1.75rem] font-bold leading-none truncate">{title}</h1>
-          {!back && <p className="text-white/70 text-sm mt-1 truncate">{club?.club_name}</p>}
+    <header className="stadium text-white px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-6 rounded-b-[32px]">
+      <div className="max-w-lg mx-auto">
+        <div className="flex items-center gap-3 min-h-12">
+          {back ? (
+            <button
+              type="button"
+              onClick={() => (typeof back === "string" ? navigate(back) : navigate(-1))}
+              aria-label="Back"
+              className="-ml-1 size-11 grid place-items-center rounded-full bg-white/10 text-2xl leading-none"
+            >
+              ‹
+            </button>
+          ) : (
+            <BrandMark className="size-11 shrink-0" />
+          )}
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display text-[2rem] font-bold leading-none truncate">{title}</h1>
+            <p className="text-white/65 text-sm mt-1 truncate">{subtitle === undefined ? club?.club_name : subtitle}</p>
+          </div>
+          {action}
         </div>
-        {action}
+        {children && <div className="mt-5">{children}</div>}
       </div>
     </header>
   );

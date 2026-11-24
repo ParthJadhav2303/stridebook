@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
@@ -90,4 +90,25 @@ def dashboard(
         students_with_dues=outstanding[1],
         active_students=active,
         recent_payments=list_payments_query(db, month=m, limit=8),
+    )
+
+
+@router.get("/export.xlsx")
+def export_month(
+    month: str | None = Query(None, description="YYYY-MM, default this month"),
+    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.modules.reports.export import month_workbook
+    from app.modules.settings.router import read_public
+
+    ensure_dues(db)
+    db.commit()
+    m = parse_month(month)
+    data = month_workbook(db, m, read_public(db).club_name)
+    filename = f"stridebook-fees-{m.strftime('%Y-%m')}.xlsx"
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

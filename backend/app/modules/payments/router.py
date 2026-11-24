@@ -10,7 +10,8 @@ from app.core.dates import add_months, parse_month, today
 from app.core.db import get_db
 from app.core.deps import get_current_user
 from app.models import Payment, PaymentAllocation, Student, User
-from app.modules.payments.service import PaymentRequest, record_payment
+from app.modules.activity.service import log, rupees
+from app.modules.payments.service import PaymentRequest, can_void, record_payment, void_payment
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 
@@ -31,6 +32,10 @@ class PaymentIn(BaseModel):
         return v
 
 
+class VoidIn(BaseModel):
+    reason: str = Field(default="", max_length=300)
+
+
 class AllocationOut(BaseModel):
     period: date
     amount: int
@@ -48,10 +53,18 @@ class PaymentOut(BaseModel):
     received_by_name: str
     created_at: datetime
     months: list[AllocationOut]
+    is_voided: bool = False
+    void_reason: str | None = None
+    voided_at: datetime | None = None
+    can_void: bool = False
 
 
-def payment_out(p: Payment, student_name: str, receiver_name: str) -> PaymentOut:
+def payment_out(p: Payment, student_name: str, receiver_name: str, user: User | None = None) -> PaymentOut:
     return PaymentOut(
+        is_voided=p.is_voided,
+        void_reason=p.void_reason,
+        voided_at=p.voided_at,
+        can_void=can_void(p, user) if user else False,
         id=p.id,
         receipt_no=p.receipt_no,
         student_id=p.student_id,
@@ -69,7 +82,9 @@ def payment_out(p: Payment, student_name: str, receiver_name: str) -> PaymentOut
     )
 
 
-def list_payments_query(db: Session, *, student_id=None, month: date | None = None, limit: int = 50):
+def list_payments_query(
+    db: Session, *, student_id=None, month: date | None = None, limit: int = 50, user: User | None = None
+):
     stmt = (
         select(Payment, Student.full_name, User.full_name)
         .join(Student, Student.id == Payment.student_id)
@@ -83,7 +98,7 @@ def list_payments_query(db: Session, *, student_id=None, month: date | None = No
         stmt = stmt.where(Payment.student_id == student_id)
     if month:
         stmt = stmt.where(Payment.paid_on >= month, Payment.paid_on < add_months(month, 1))
-    return [payment_out(p, s, u) for p, s, u in db.execute(stmt).all()]
+    return [payment_out(p, s, u, user) for p, s, u in db.execute(stmt).all()]
 
 
 @router.post("", response_model=PaymentOut, status_code=status.HTTP_201_CREATED)
@@ -104,6 +119,23 @@ def create_payment(body: PaymentIn, user: User = Depends(get_current_user), db: 
         ),
         user,
     )
+    db.flush()
+    db.refresh(payment)
+    covered = ", ".join(
+        a.fee_due.period.strftime("%b %Y")
+        for a in sorted(payment.allocations, key=lambda a: a.fee_due.period)
+    )
+    student_name = db.get(Student, payment.student_id).full_name
+    log(
+        db,
+        user,
+        "payment.create",
+        "payment",
+        payment.id,
+        f"Recorded {rupees(payment.amount)} ({payment.mode.upper() if payment.mode == 'upi' else 'cash'}) "
+        f"from {student_name} for {covered}. Receipt {payment.receipt_no}.",
+        {"amount": payment.amount, "mode": payment.mode, "student_id": payment.student_id},
+    )
     db.commit()
     return get_payment(payment.id, user, db)
 
@@ -122,7 +154,7 @@ def list_payments(
 
 
 @router.get("/{payment_id}", response_model=PaymentOut)
-def get_payment(payment_id: int, _: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_payment(payment_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     row = db.execute(
         select(Payment, Student.full_name, User.full_name)
         .join(Student, Student.id == Payment.student_id)
@@ -132,4 +164,33 @@ def get_payment(payment_id: int, _: User = Depends(get_current_user), db: Sessio
     ).first()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found.")
-    return payment_out(*row)
+    return payment_out(*row, user)
+
+
+@router.post("/{payment_id}/void", response_model=PaymentOut)
+def void(
+    payment_id: int, body: VoidIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    payment = db.scalar(
+        select(Payment)
+        .where(Payment.id == payment_id)
+        .options(selectinload(Payment.allocations).selectinload(PaymentAllocation.fee_due))
+        .with_for_update()
+    )
+    if payment is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Payment not found.")
+    months = [a.fee_due.period.isoformat() for a in payment.allocations]
+    void_payment(db, payment, user, body.reason)
+    student_name = db.get(Student, payment.student_id).full_name
+    log(
+        db,
+        user,
+        "payment.void",
+        "payment",
+        payment.id,
+        f"Cancelled {rupees(payment.amount)} from {student_name} (receipt {payment.receipt_no})"
+        + (f": {payment.void_reason}" if payment.void_reason else "."),
+        {"amount": payment.amount, "months": months, "reason": payment.void_reason},
+    )
+    db.commit()
+    return get_payment(payment.id, user, db)

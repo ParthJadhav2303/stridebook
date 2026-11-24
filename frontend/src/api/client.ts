@@ -103,6 +103,45 @@ export async function request<T>(method: string, path: string, body?: unknown, r
   return data as T;
 }
 
+async function authedFetch(path: string, init: RequestInit = {}, retry = true): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (session) headers.set("Authorization", `Bearer ${session.access_token}`);
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, { ...init, headers });
+  } catch {
+    throw new ApiError(0, errorMessage(null, 0));
+  }
+  if (res.status === 401 && retry && session && (await refresh())) return authedFetch(path, init, false);
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(res.status, errorMessage(data, res.status));
+  }
+  return res;
+}
+
+/** Upload one file as multipart/form-data and return the JSON response. */
+export async function upload<T>(path: string, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await authedFetch(path, { method: "POST", body: form });
+  return (await res.json()) as T;
+}
+
+/** Download a file the API generates (e.g. Excel) and hand it to the browser. */
+export async function download(path: string, fallbackName: string): Promise<void> {
+  const res = await authedFetch(path);
+  const name = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export const get = <T>(path: string) => request<T>("GET", path);
 export const post = <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {});
 export const patch = <T>(path: string, body: unknown) => request<T>("PATCH", path, body);
