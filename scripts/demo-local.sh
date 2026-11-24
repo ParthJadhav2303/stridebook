@@ -34,7 +34,10 @@ for arg in "$@"; do
         echo "No background demo is running."
       fi
       exit 0 ;;
-    *) FEEBOOK="$(cd "$(dirname "$arg")" && pwd)/$(basename "$arg")" ;;
+    "") echo "Error: the fee book path is empty (check the path you typed; it must start with / or ~)." >&2; exit 1 ;;
+    *)
+      [ -f "$arg" ] || { echo "Error: fee book not found: $arg" >&2; exit 1; }
+      FEEBOOK="$(cd "$(dirname "$arg")" && pwd)/$(basename "$arg")" ;;
   esac
 done
 
